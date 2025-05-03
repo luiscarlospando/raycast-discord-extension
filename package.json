@@ -41,11 +41,28 @@
             "mode": "view"
         }
     ],
+    "preferences": [
+        {
+            "name": "clientId",
+            "title": "Discord Client ID",
+            "description": "El Client ID de tu aplicación Discord (desde el portal de desarrolladores)",
+            "type": "textfield",
+            "required": true
+        },
+        {
+            "name": "clientSecret",
+            "title": "Discord Client Secret",
+            "description": "El Client Secret de tu aplicación Discord (desde el portal de desarrolladores)",
+            "type": "password",
+            "required": true
+        }
+    ],
     "dependencies": {
         "@raycast/api": "^1.60.0",
         "@raycast/utils": "^1.10.0",
         "discord.js": "^14.11.0",
-        "node-fetch": "^3.3.2"
+        "node-fetch": "^3.3.2",
+        "oauth4webapi": "^2.3.0"
     },
     "devDependencies": {
         "@eslint/config-array": "^0.20.0",
