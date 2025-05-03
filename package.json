@@ -45,14 +45,14 @@
         {
             "name": "clientId",
             "title": "Discord Client ID",
-            "description": "El Client ID de tu aplicación Discord (desde el portal de desarrolladores)",
+            "description": "The Client ID of your Discord application (from the developer portal)",
             "type": "textfield",
             "required": true
         },
         {
             "name": "clientSecret",
             "title": "Discord Client Secret",
-            "description": "El Client Secret de tu aplicación Discord (desde el portal de desarrolladores)",
+            "description": "The Client Secret of your Discord application (from the developer portal)",
             "type": "password",
             "required": true
         }
