@@ -1,0 +1,65 @@
+{
+  "name": "discord-controller",
+  "title": "Discord Controller",
+  "description": "Control Discord from Raycast - browse channels, search messages, view unread, toggle notifications and set status",
+  "icon": "discord-icon.png",
+  "author": "Luis Carlos Pando <hey@luiscarlospando.com>",
+  "categories": [
+    "Communication",
+    "Productivity"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "open-channels",
+      "title": "Open Discord Channels",
+      "description": "Browse and open Discord servers and channels",
+      "mode": "view"
+    },
+    {
+      "name": "search-messages",
+      "title": "Search Discord Messages",
+      "description": "Search messages within Discord channels",
+      "mode": "view"
+    },
+    {
+      "name": "unread-messages",
+      "title": "View Unread Messages",
+      "description": "List and access unread Discord messages",
+      "mode": "view"
+    },
+    {
+      "name": "toggle-notifications",
+      "title": "Toggle Discord Notifications",
+      "description": "Enable or disable Discord notifications",
+      "mode": "view"
+    },
+    {
+      "name": "set-status",
+      "title": "Set Discord Status",
+      "description": "Change your Discord presence status and add custom messages",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.60.0",
+    "@raycast/utils": "^1.10.0",
+    "discord.js": "^14.11.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@eslint/config-array": "^0.20.0",
+    "@eslint/object-schema": "^2.1.6",
+    "@raycast/eslint-config": "^1.0.6",
+    "@types/node": "^20.5.6",
+    "@types/react": "^18.2.21",
+    "eslint": "^9.26.0",
+    "prettier": "^3.0.2",
+    "typescript": "^5.2.2"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "lint": "ray lint"
+  }
+}

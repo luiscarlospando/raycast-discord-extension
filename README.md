@@ -1,4 +1,4 @@
-# 📡 Discord Extension for Raycast
+# 💬 Discord Controller for Raycast
 A Raycast extension that lets you control Discord without switching windows. Quickly open channels, search messages, manage notifications, and set your presence status — all from your keyboard.
 
 ## ✨ Features
@@ -25,7 +25,7 @@ A Raycast extension that lets you control Discord without switching windows. Qui
 > *Coming soon to the [Raycast Store](https://www.raycast.com/store) — or install locally via the Extensions panel.*
 
 ## 🛠️ Requirements
-- [Raycast](https://www.raycast.com/) installed
+- [Raycast](https://raycast.com/?via=luis-carlos) installed
 - Discord desktop app (running)
 
 ## 📃 License
