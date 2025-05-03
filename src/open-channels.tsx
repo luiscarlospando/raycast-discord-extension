@@ -1,232 +1,192 @@
-import { useState, useEffect } from "react";
-import {
-    List,
-    ActionPanel,
-    Action,
-    showToast,
-    Toast,
-    Icon,
-    getPreferenceValues,
-} from "@raycast/api";
-import { useCachedPromise } from "@raycast/utils";
-import { DiscordServer, DiscordChannel } from "./utils/types";
-import {
-    getServers,
-    getChannels,
-    openDiscordChannel,
-    checkLoggedIn,
-} from "./utils/discord-api";
-import {
-    addRecentServer,
-    addRecentChannel,
-    getRecentServers,
-    getRecentChannels,
-} from "./utils/preferences";
+import { List, ActionPanel, Action, showToast, Toast } from "@raycast/api";
+import { useEffect, useState } from "react";
+import { fetchFromDiscord, isAuthenticated } from "../oauth";
+import { AuthView } from "../components/AuthView";
 
-export default function OpenChannels() {
-    // State
-    const [selectedServerId, setSelectedServerId] = useState<string | null>(
-        null
-    );
-    const [recentServers, setRecentServers] = useState<string[]>([]);
-    const [recentChannels, setRecentChannels] = useState<string[]>([]);
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+interface Guild {
+    id: string;
+    name: string;
+    icon: string | null;
+}
 
-    // Fetch servers
-    const {
-        data: servers,
-        isLoading: isLoadingServers,
-        error: serversError,
-        revalidate: revalidateServers,
-    } = useCachedPromise(
-        async () => {
-            if (!isLoggedIn) return [];
-            return getServers();
-        },
-        [],
-        { keepPreviousData: true }
-    );
+interface Channel {
+    id: string;
+    name: string;
+    type: number;
+    parent_id: string | null;
+}
 
-    // Fetch channels for selected server
-    const {
-        data: channels,
-        isLoading: isLoadingChannels,
-        error: channelsError,
-        revalidate: revalidateChannels,
-    } = useCachedPromise(
-        async () => {
-            if (!selectedServerId || !isLoggedIn) return [];
+export default function Command() {
+    const [isLoading, setIsLoading] = useState(true);
+    const [authenticated, setAuthenticated] = useState(false);
+    const [guilds, setGuilds] = useState<Guild[]>([]);
+    const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
+    const [channels, setChannels] = useState<Channel[]>([]);
 
-            const channelList = await getChannels(selectedServerId);
-            const server = servers?.find((s) => s.id === selectedServerId);
-
-            // Add server name to channels
-            return channelList.map((channel) => ({
-                ...channel,
-                serverName: server?.name || "Unknown Server",
-            }));
-        },
-        [selectedServerId, servers],
-        { keepPreviousData: true }
-    );
-
-    // Load initial data
     useEffect(() => {
-        const checkLogin = async () => {
-            const loggedIn = await checkLoggedIn();
-            setIsLoggedIn(loggedIn);
-
-            if (!loggedIn) {
-                showToast({
-                    style: Toast.Style.Failure,
-                    title: "Not Logged In",
-                    message: "Please set your Discord token in preferences",
-                });
-            }
-        };
-
-        const loadRecents = async () => {
-            const recentServerIds = await getRecentServers();
-            setRecentServers(recentServerIds);
-
-            const recentChannelIds = await getRecentChannels();
-            setRecentChannels(recentChannelIds);
-        };
-
-        checkLogin();
-        loadRecents();
+        checkAuth();
     }, []);
 
-    // Handle server selection
-    const handleSelectServer = async (serverId: string) => {
-        setSelectedServerId(serverId);
-        await addRecentServer(serverId);
-        const recentServerIds = await getRecentServers();
-        setRecentServers(recentServerIds);
-    };
+    useEffect(() => {
+        if (authenticated) {
+            loadGuilds();
+        }
+    }, [authenticated]);
 
-    // Handle channel opening
-    const handleOpenChannel = async (channel: DiscordChannel) => {
-        openDiscordChannel(channel.id);
-        await addRecentChannel(channel.id);
-        const recentChannelIds = await getRecentChannels();
-        setRecentChannels(recentChannelIds);
-    };
+    useEffect(() => {
+        if (selectedGuildId) {
+            loadChannels(selectedGuildId);
+        }
+    }, [selectedGuildId]);
 
-    // Get recent channels with full details
-    const getRecentChannelsWithDetails = (): DiscordChannel[] => {
-        if (!channels || !servers) return [];
-
-        return recentChannels
-            .map((channelId) => {
-                const channel = channels.find((c) => c.id === channelId);
-                if (channel) return channel;
-                return null;
-            })
-            .filter((c): c is DiscordChannel => c !== null);
-    };
-
-    // Handle errors
-    if (serversError) {
-        showToast({
-            style: Toast.Style.Failure,
-            title: "Failed to load servers",
-            message: serversError.message,
-        });
+    async function checkAuth() {
+        const isAuth = await isAuthenticated();
+        setAuthenticated(isAuth);
+        setIsLoading(false);
     }
 
-    if (channelsError) {
-        showToast({
-            style: Toast.Style.Failure,
-            title: "Failed to load channels",
-            message: channelsError.message,
-        });
+    async function loadGuilds() {
+        try {
+            setIsLoading(true);
+            const data = await fetchFromDiscord("/users/@me/guilds");
+            setGuilds(data);
+        } catch (error) {
+            console.error("Error loading servers:", error);
+            await showToast({
+                style: Toast.Style.Failure,
+                title: "Error loading servers",
+                message:
+                    error instanceof Error ? error.message : "Unknown error",
+            });
+        } finally {
+            setIsLoading(false);
+        }
     }
 
-    // Render function
+    async function loadChannels(guildId: string) {
+        try {
+            setIsLoading(true);
+            const data = await fetchFromDiscord(`/guilds/${guildId}/channels`);
+            // Filter only text channels (type 0) and categories (type 4)
+            setChannels(
+                data.filter((channel: Channel) =>
+                    [0, 2, 4, 5].includes(channel.type)
+                )
+            );
+        } catch (error) {
+            console.error("Error loading channels:", error);
+            await showToast({
+                style: Toast.Style.Failure,
+                title: "Error loading channels",
+                message:
+                    error instanceof Error ? error.message : "Unknown error",
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    function getChannelTypeIcon(type: number) {
+        switch (type) {
+            case 0:
+                return "🗨️"; // Text channel
+            case 2:
+                return "🔊"; // Voice channel
+            case 4:
+                return "📁"; // Category
+            case 5:
+                return "📢"; // Announcement channel
+            default:
+                return "❓";
+        }
+    }
+
+    function openDiscordChannel(guildId: string, channelId: string) {
+        // Open channel in Discord
+        const url = `discord://discord.com/channels/${guildId}/${channelId}`;
+        open(url);
+    }
+
+    if (!authenticated) {
+        return <AuthView onAuthenticated={() => setAuthenticated(true)} />;
+    }
+
     return (
         <List
-            isLoading={isLoadingServers || isLoadingChannels}
-            searchBarPlaceholder="Search servers and channels..."
-            navigationTitle="Discord Channels"
-            isShowingDetail
+            isLoading={isLoading}
+            searchBarPlaceholder={
+                selectedGuildId ? "Search channels..." : "Search servers..."
+            }
+            onSelectionChange={(id) => {
+                if (id && !selectedGuildId) {
+                    setSelectedGuildId(id as string);
+                }
+            }}
+            navigationTitle={
+                selectedGuildId ? "Discord Channels" : "Discord Servers"
+            }
         >
-            {!isLoggedIn ? (
-                <List.EmptyView
-                    title="Not Logged In"
-                    description="Please set your Discord token in Raycast preferences"
-                    icon={Icon.PersonDisabled}
-                />
-            ) : (
+            {selectedGuildId ? (
                 <>
-                    {/* Display recent channels */}
-                    {getRecentChannelsWithDetails().length > 0 && (
-                        <List.Section title="Recent Channels">
-                            {getRecentChannelsWithDetails().map((channel) => (
-                                <List.Item
-                                    key={channel.id}
-                                    icon={Icon.Calendar}
-                                    title={channel.name}
-                                    subtitle={channel.serverName}
-                                    detail={
-                                        <List.Item.Detail
-                                            markdown={`# ${channel.name}\n\nServer: **${channel.serverName}**`}
-                                            metadata={
-                                                <List.Item.Detail.Metadata>
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Channel"
-                                                        text={channel.name}
-                                                    />
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Server"
-                                                        text={
-                                                            channel.serverName
-                                                        }
-                                                    />
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Channel ID"
-                                                        text={channel.id}
-                                                    />
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Server ID"
-                                                        text={channel.serverId}
-                                                    />
-                                                </List.Item.Detail.Metadata>
-                                            }
-                                        />
-                                    }
-                                    actions={
-                                        <ActionPanel>
+                    <List.Section title="Channels">
+                        {channels.map((channel) => (
+                            <List.Item
+                                key={channel.id}
+                                id={channel.id}
+                                title={`${getChannelTypeIcon(channel.type)} ${channel.name}`}
+                                accessories={[
+                                    {
+                                        text:
+                                            channel.type === 4
+                                                ? "Category"
+                                                : "Channel",
+                                    },
+                                ]}
+                                actions={
+                                    <ActionPanel>
+                                        {channel.type !== 4 && (
                                             <Action
                                                 title="Open Channel"
                                                 onAction={() =>
-                                                    handleOpenChannel(channel)
+                                                    openDiscordChannel(
+                                                        selectedGuildId,
+                                                        channel.id
+                                                    )
                                                 }
                                             />
-                                        </ActionPanel>
-                                    }
-                                />
-                            ))}
-                        </List.Section>
-                    )}
-
-                    {/* Servers List */}
-                    <List.Section title="Servers">
-                        {servers?.map((server) => (
-                            <List.Item
-                                key={server.id}
-                                icon={
-                                    server.icon
-                                        ? { source: server.icon }
-                                        : Icon.Globe
+                                        )}
+                                        <Action
+                                            title="Back to Servers"
+                                            onAction={() => {
+                                                setSelectedGuildId(null);
+                                                setChannels([]);
+                                            }}
+                                        />
+                                    </ActionPanel>
                                 }
-                                title={server.name}
+                            />
+                        ))}
+                    </List.Section>
+                </>
+            ) : (
+                <>
+                    <List.Section title="Servers">
+                        {guilds.map((guild) => (
+                            <List.Item
+                                key={guild.id}
+                                id={guild.id}
+                                title={guild.name}
+                                icon={
+                                    guild.icon
+                                        ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png`
+                                        : "discord-icon.png"
+                                }
                                 actions={
                                     <ActionPanel>
                                         <Action
-                                            title="Show Channels"
+                                            title="View Channels"
                                             onAction={() =>
-                                                handleSelectServer(server.id)
+                                                setSelectedGuildId(guild.id)
                                             }
                                         />
                                     </ActionPanel>
@@ -234,57 +194,6 @@ export default function OpenChannels() {
                             />
                         ))}
                     </List.Section>
-
-                    {/* Channels List for Selected Server */}
-                    {selectedServerId && (
-                        <List.Section title="Channels">
-                            {channels?.map((channel) => (
-                                <List.Item
-                                    key={channel.id}
-                                    icon={Icon.Hash}
-                                    title={channel.name}
-                                    subtitle={channel.serverName}
-                                    detail={
-                                        <List.Item.Detail
-                                            markdown={`# ${channel.name}\n\nServer: **${channel.serverName}**`}
-                                            metadata={
-                                                <List.Item.Detail.Metadata>
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Channel"
-                                                        text={channel.name}
-                                                    />
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Server"
-                                                        text={
-                                                            channel.serverName
-                                                        }
-                                                    />
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Channel ID"
-                                                        text={channel.id}
-                                                    />
-                                                    <List.Item.Detail.Metadata.Label
-                                                        title="Server ID"
-                                                        text={channel.serverId}
-                                                    />
-                                                </List.Item.Detail.Metadata>
-                                            }
-                                        />
-                                    }
-                                    actions={
-                                        <ActionPanel>
-                                            <Action
-                                                title="Open Channel"
-                                                onAction={() =>
-                                                    handleOpenChannel(channel)
-                                                }
-                                            />
-                                        </ActionPanel>
-                                    }
-                                />
-                            ))}
-                        </List.Section>
-                    )}
                 </>
             )}
         </List>
