@@ -8,18 +8,18 @@
 /* eslint-disable @typescript-eslint/ban-types */
 
 type ExtensionPreferences = {
-  /** Discord Client ID - El Client ID de tu aplicación Discord (desde el portal de desarrolladores) */
-  "clientId": string,
-  /** Discord Client Secret - El Client Secret de tu aplicación Discord (desde el portal de desarrolladores) */
-  "clientSecret": string
+  /** Redirect URI - The redirect URI for Discord OAuth */
+  "redirectUri": string
 }
 
 /** Preferences accessible in all the extension's commands */
 declare type Preferences = ExtensionPreferences
 
 declare namespace Preferences {
-  /** Preferences accessible in the `open-channels` command */
-  export type OpenChannels = ExtensionPreferences & {}
+  /** Preferences accessible in the `index` command */
+  export type Index = ExtensionPreferences & {}
+  /** Preferences accessible in the `open-channel` command */
+  export type OpenChannel = ExtensionPreferences & {}
   /** Preferences accessible in the `search-messages` command */
   export type SearchMessages = ExtensionPreferences & {}
   /** Preferences accessible in the `unread-messages` command */
@@ -28,11 +28,15 @@ declare namespace Preferences {
   export type ToggleNotifications = ExtensionPreferences & {}
   /** Preferences accessible in the `set-status` command */
   export type SetStatus = ExtensionPreferences & {}
+  /** Preferences accessible in the `test-auth` command */
+  export type TestAuth = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
-  /** Arguments passed to the `open-channels` command */
-  export type OpenChannels = {}
+  /** Arguments passed to the `index` command */
+  export type Index = {}
+  /** Arguments passed to the `open-channel` command */
+  export type OpenChannel = {}
   /** Arguments passed to the `search-messages` command */
   export type SearchMessages = {}
   /** Arguments passed to the `unread-messages` command */
@@ -41,5 +45,7 @@ declare namespace Arguments {
   export type ToggleNotifications = {}
   /** Arguments passed to the `set-status` command */
   export type SetStatus = {}
+  /** Arguments passed to the `test-auth` command */
+  export type TestAuth = {}
 }
 

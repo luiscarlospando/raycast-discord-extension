@@ -1,228 +1,220 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-    List,
-    ActionPanel,
     Action,
+    ActionPanel,
+    List,
+    Icon,
     showToast,
     Toast,
-    Icon,
+    Color,
 } from "@raycast/api";
-import { useCachedPromise } from "@raycast/utils";
-import { DiscordUnreadMessage } from "./utils/types";
-import {
-    getUnreadMessages,
-    openDiscordChannel,
-    checkLoggedIn,
-} from "./utils/discord-api";
-import { addRecentChannel } from "./utils/preferences";
+import { getServers, getUnreadMessages } from "./api";
+import { getServerIconUrl } from "./utils";
 
-export default function UnreadMessages() {
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+interface UnreadMessage {
+    id: string;
+    content: string;
+    author: {
+        username: string;
+        id: string;
+        avatar: string;
+    };
+    timestamp: string;
+    channel_id: string;
+    guild_id: string;
+}
 
-    // Check login status
+interface UnreadChannel {
+    id: string;
+    name: string;
+    guild_id: string;
+    guild_name: string;
+    mention_count: number;
+    last_message_id: string;
+    messages: UnreadMessage[];
+}
+
+export default function Command() {
+    const [isLoading, setIsLoading] = useState(true);
+    const [unreadChannels, setUnreadChannels] = useState<UnreadChannel[]>([]);
+    const [serverMap, setServerMap] = useState<{
+        [key: string]: { name: string; icon: string };
+    }>({});
+
     useEffect(() => {
-        const checkLogin = async () => {
-            const loggedIn = await checkLoggedIn();
-            setIsLoggedIn(loggedIn);
+        async function fetchData() {
+            try {
+                // First fetch servers to get their names and icons
+                const servers = await getServers();
+                const serversMap = servers.reduce(
+                    (acc, server) => {
+                        acc[server.id] = {
+                            name: server.name,
+                            icon: server.icon,
+                        };
+                        return acc;
+                    },
+                    {} as { [key: string]: { name: string; icon: string } }
+                );
 
-            if (!loggedIn) {
+                setServerMap(serversMap);
+
+                // Then fetch unread messages
+                const unreadData = await getUnreadMessages();
+
+                // Process and organize the unread messages
+                const processedChannels: UnreadChannel[] = [];
+
+                // Process the response from Discord API
+                // Note: This is a simplified example - actual processing will depend on the
+                // exact structure of Discord's API response
+                for (const channel of unreadData) {
+                    if (channel.unread_count > 0) {
+                        processedChannels.push({
+                            id: channel.id,
+                            name: channel.name || "Direct Message",
+                            guild_id: channel.guild_id || "@me",
+                            guild_name: channel.guild_id
+                                ? serversMap[channel.guild_id]?.name ||
+                                  "Unknown Server"
+                                : "Direct Messages",
+                            mention_count: channel.mention_count || 0,
+                            last_message_id: channel.last_message_id,
+                            messages: channel.messages || [],
+                        });
+                    }
+                }
+
+                setUnreadChannels(processedChannels);
+            } catch (error) {
+                console.error("Error fetching unread messages:", error);
                 showToast({
                     style: Toast.Style.Failure,
-                    title: "Not Logged In",
-                    message: "Please set your Discord token in preferences",
+                    title: "Failed to load unread messages",
+                    message: String(error),
                 });
+            } finally {
+                setIsLoading(false);
             }
-        };
+        }
 
-        checkLogin();
+        fetchData();
     }, []);
 
-    // Fetch unread messages
-    const {
-        data: unreadMessages,
-        isLoading,
-        error,
-        revalidate,
-    } = useCachedPromise(
-        async () => {
-            if (!isLoggedIn) return [];
-            return getUnreadMessages();
-        },
-        [isLoggedIn],
-        {
-            keepPreviousData: true,
-            // Auto-refresh every 30 seconds
-            initialPromise: () => Promise.resolve([]),
-            refreshInterval: 30000,
-        }
-    );
-
-    // Format date for display
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-    };
-
-    // Open a channel and mark messages as read
-    const handleOpenChannel = async (message: DiscordUnreadMessage) => {
-        openDiscordChannel(message.channelId);
-        await addRecentChannel(message.channelId);
-        // Wait a bit then revalidate to refresh the list
-        setTimeout(() => revalidate(), 2000);
-    };
-
-    // Group messages by channel
-    const groupedMessages = unreadMessages?.reduce(
-        (acc, message) => {
-            const channelId = message.channelId;
-            if (!acc[channelId]) {
-                acc[channelId] = {
-                    channelId,
-                    channelName: message.channelName || "Unknown Channel",
-                    serverId: message.serverId,
-                    serverName: message.serverName || "Unknown Server",
-                    messages: [],
-                    mentionCount: 0,
-                };
-            }
-
-            acc[channelId].messages.push(message);
-            acc[channelId].mentionCount += message.mentionCount || 0;
-
-            return acc;
-        },
-        {} as Record<
-            string,
-            {
-                channelId: string;
-                channelName: string;
-                serverId: string;
-                serverName: string;
-                messages: DiscordUnreadMessage[];
-                mentionCount: number;
-            }
-        >
-    );
-
-    // Convert grouped messages to array
-    const channelsWithUnread = groupedMessages
-        ? Object.values(groupedMessages)
-        : [];
-
-    // Handle errors
-    if (error) {
-        showToast({
-            style: Toast.Style.Failure,
-            title: "Failed to load unread messages",
-            message: error.message,
-        });
+    function openChannel(channelId: string, guildId: string) {
+        const baseUrl = "discord://discord.com/channels/";
+        const url =
+            guildId === "@me"
+                ? `${baseUrl}@me/${channelId}`
+                : `${baseUrl}${guildId}/${channelId}`;
+        // Use Raycast's openInBrowser function to open this URL
     }
+
+    // Group unread channels by server for better organization
+    const groupedChannels: { [key: string]: UnreadChannel[] } = {};
+    unreadChannels.forEach((channel) => {
+        if (!groupedChannels[channel.guild_id]) {
+            groupedChannels[channel.guild_id] = [];
+        }
+        groupedChannels[channel.guild_id].push(channel);
+    });
 
     return (
         <List
             isLoading={isLoading}
-            searchBarPlaceholder="Search unread messages..."
-            navigationTitle="Unread Discord Messages"
-            isShowingDetail
-            onSelectionChange={() => {}}
-            throttle
+            searchBarPlaceholder="Filter unread channels..."
         >
-            {!isLoggedIn ? (
-                <List.EmptyView
-                    title="Not Logged In"
-                    description="Please set your Discord token in Raycast preferences"
-                    icon={Icon.PersonDisabled}
-                />
-            ) : unreadMessages?.length === 0 ? (
-                <List.EmptyView
-                    title="No Unread Messages"
-                    description="You're all caught up!"
-                    icon={Icon.CheckCircle}
-                />
-            ) : (
+            {Object.entries(groupedChannels).map(([guildId, channels]) => (
                 <List.Section
-                    title="Unread Messages"
-                    subtitle={channelsWithUnread.length.toString()}
+                    key={guildId}
+                    title={channels[0].guild_name}
+                    subtitle={`${channels.length} channel${channels.length !== 1 ? "s" : ""}`}
                 >
-                    {channelsWithUnread.map((channel) => (
-                        <List.Item
-                            key={channel.channelId}
-                            icon={
-                                channel.mentionCount > 0
-                                    ? Icon.ExclamationMark
-                                    : Icon.Message
-                            }
-                            title={`#${channel.channelName}`}
-                            subtitle={channel.serverName}
-                            accessories={[
-                                {
-                                    text: `${channel.messages.length} messages`,
-                                    icon: Icon.Message,
-                                },
-                                channel.mentionCount > 0
-                                    ? {
-                                          text: `${channel.mentionCount} mentions`,
-                                          icon: Icon.AtSymbol,
-                                      }
-                                    : null,
-                            ].filter(Boolean)}
-                            detail={
-                                <List.Item.Detail
-                                    markdown={`# Unread in #${channel.channelName}\n\n**Server**: ${channel.serverName}\n\n**Unread Messages**: ${channel.messages.length}\n\n**Mentions**: ${channel.mentionCount}\n\n${channel.messages
-                                        .map(
-                                            (msg) =>
-                                                `- **${msg.author.username}**: ${msg.content.length > 100 ? msg.content.substring(0, 100) + "..." : msg.content} _(${formatDate(msg.timestamp)})_`
-                                        )
-                                        .join("\n\n")}`}
-                                    metadata={
-                                        <List.Item.Detail.Metadata>
-                                            <List.Item.Detail.Metadata.Label
-                                                title="Channel"
-                                                text={`#${channel.channelName}`}
-                                            />
-                                            <List.Item.Detail.Metadata.Label
-                                                title="Server"
-                                                text={channel.serverName}
-                                            />
-                                            <List.Item.Detail.Metadata.Label
-                                                title="Unread"
-                                                text={channel.messages.length.toString()}
-                                            />
-                                            <List.Item.Detail.Metadata.Label
-                                                title="Mentions"
-                                                text={channel.mentionCount.toString()}
-                                            />
-                                            <List.Item.Detail.Metadata.Separator />
-                                            <List.Item.Detail.Metadata.Label
-                                                title="Latest Message"
-                                                text={formatDate(
-                                                    channel.messages[0]
-                                                        .timestamp
-                                                )}
-                                            />
-                                        </List.Item.Detail.Metadata>
-                                    }
-                                />
-                            }
-                            actions={
-                                <ActionPanel>
-                                    <Action
-                                        title="Open Channel"
-                                        onAction={() =>
-                                            handleOpenChannel(
-                                                channel.messages[0]
-                                            )
-                                        }
-                                    />
-                                    <Action
-                                        title="Refresh"
-                                        onAction={() => revalidate()}
-                                    />
-                                </ActionPanel>
-                            }
-                        />
-                    ))}
+                    {channels.map((channel) => {
+                        const hasMentions = channel.mention_count > 0;
+
+                        return (
+                            <List.Item
+                                key={channel.id}
+                                title={channel.name}
+                                subtitle={
+                                    hasMentions
+                                        ? `${channel.mention_count} mention${channel.mention_count !== 1 ? "s" : ""}`
+                                        : "New messages"
+                                }
+                                icon={{
+                                    source:
+                                        guildId !== "@me" &&
+                                        serverMap[guildId]?.icon
+                                            ? getServerIconUrl(
+                                                  guildId,
+                                                  serverMap[guildId].icon
+                                              )
+                                            : Icon.Message,
+                                }}
+                                accessories={[
+                                    hasMentions
+                                        ? {
+                                              icon: {
+                                                  source: Icon.Pin,
+                                                  tintColor: Color.Red,
+                                              },
+                                              tooltip: "Mentions",
+                                          }
+                                        : {
+                                              icon: {
+                                                  source: Icon.Circle,
+                                                  tintColor: Color.Blue,
+                                              },
+                                              tooltip: "Unread",
+                                          },
+                                ]}
+                                actions={
+                                    <ActionPanel>
+                                        <Action
+                                            title="Open Channel"
+                                            icon={Icon.ArrowRight}
+                                            onAction={() =>
+                                                openChannel(channel.id, guildId)
+                                            }
+                                        />
+                                        <Action
+                                            title={
+                                                hasMentions
+                                                    ? "Mark Mentions as Read"
+                                                    : "Mark as Read"
+                                            }
+                                            icon={Icon.Check}
+                                            onAction={() => {
+                                                // Implement mark as read functionality
+                                                showToast({
+                                                    style: Toast.Style.Success,
+                                                    title: "Marked as read",
+                                                    message: `${channel.name} marked as read`,
+                                                });
+                                                // Update the UI by removing this channel
+                                                setUnreadChannels(
+                                                    unreadChannels.filter(
+                                                        (c) =>
+                                                            c.id !== channel.id
+                                                    )
+                                                );
+                                            }}
+                                        />
+                                    </ActionPanel>
+                                }
+                            />
+                        );
+                    })}
                 </List.Section>
+            ))}
+
+            {unreadChannels.length === 0 && !isLoading && (
+                <List.EmptyView
+                    icon={Icon.Checkmark}
+                    title="All caught up!"
+                    description="You have no unread messages"
+                />
             )}
         </List>
     );

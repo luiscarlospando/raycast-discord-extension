@@ -1,143 +1,100 @@
-import { getPreferenceValues, Icon, List } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { checkLoggedIn } from "./utils/discord-api";
+import { ActionPanel, Icon, List, Action } from "@raycast/api";
+import { authorize } from "./auth";
 
-interface Preferences {
-    discordToken: string;
-}
-
-export default function DiscordController() {
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-
-    // Check Discord login status on component mount
-    useEffect(() => {
-        const validateLogin = async () => {
-            const loggedIn = await checkLoggedIn();
-            setIsLoggedIn(loggedIn);
-        };
-
-        validateLogin();
-    }, []);
-
-    // Get preferences
-    const preferences = getPreferenceValues<Preferences>();
-    const hasToken = !!preferences.discordToken;
-
-    // List of available commands
-    const commands = [
-        {
-            name: "openChannels",
-            title: "Open Discord Channels",
-            description: "Browse and open Discord servers and channels",
-            icon: Icon.Hash,
-            requiresLogin: true,
-        },
-        {
-            name: "searchMessages",
-            title: "Search Discord Messages",
-            description: "Search messages within Discord channels",
-            icon: Icon.MagnifyingGlass,
-            requiresLogin: true,
-        },
-        {
-            name: "unreadMessages",
-            title: "View Unread Messages",
-            description: "List and access unread Discord messages",
-            icon: Icon.Envelope,
-            requiresLogin: true,
-        },
-        {
-            name: "toggleNotifications",
-            title: "Toggle Discord Notifications",
-            description: "Enable or disable Discord notifications",
-            icon: Icon.Bell,
-            requiresLogin: true,
-        },
-        {
-            name: "setStatus",
-            title: "Set Discord Status",
-            description:
-                "Change your Discord presence status and add custom messages",
-            icon: Icon.UserCircle,
-            requiresLogin: true,
-        },
-    ];
-
-    return (
-        <List
-            navigationTitle="Discord Controller"
-            searchBarPlaceholder="Search Discord commands..."
-        >
-            <List.Section title="Discord Commands">
-                {commands.map((command) => (
-                    <List.Item
-                        key={command.name}
-                        icon={command.icon}
-                        title={command.title}
-                        subtitle={command.description}
-                        accessories={[
-                            {
-                                icon:
-                                    isLoggedIn === null
-                                        ? Icon.Loading
-                                        : isLoggedIn
-                                          ? Icon.CheckCircle
-                                          : Icon.XmarkCircle,
-                                tooltip:
-                                    isLoggedIn === null
-                                        ? "Checking login status..."
-                                        : isLoggedIn
-                                          ? "Logged in to Discord"
-                                          : "Not logged in to Discord",
-                            },
-                        ]}
-                        actions={
-                            <List.Item.Action.Push
-                                title={
-                                    command.requiresLogin && !isLoggedIn
-                                        ? "Login Required"
-                                        : command.title
-                                }
-                                target={
-                                    command.requiresLogin && !isLoggedIn ? (
-                                        <LoginRequiredView />
-                                    ) : (
-                                        {
-                                            openChannels:
-                                                require("./open-channels")
-                                                    .default,
-                                            searchMessages:
-                                                require("./search-messages")
-                                                    .default,
-                                            unreadMessages:
-                                                require("./unread-messages")
-                                                    .default,
-                                            toggleNotifications:
-                                                require("./toggle-notifications")
-                                                    .default,
-                                            setStatus:
-                                                require("./set-status").default,
-                                        }[command.name]
-                                    )
-                                }
-                            />
-                        }
-                    />
-                ))}
-            </List.Section>
-        </List>
-    );
-}
-
-// View for when login is required
-function LoginRequiredView() {
+export default function Command() {
     return (
         <List>
-            <List.EmptyView
-                title="Discord Login Required"
-                description="Please set your Discord token in Raycast preferences to use this feature."
-                icon={Icon.Person}
-            />
+            <List.Section title="Discord Controller">
+                <List.Item
+                    icon={{ source: Icon.Message }}
+                    title="Open Discord Channel"
+                    actions={
+                        <ActionPanel>
+                            <Action.Push
+                                title="Open"
+                                target={require("./open-channel").default}
+                                icon={Icon.ArrowRight}
+                            />
+                        </ActionPanel>
+                    }
+                />
+
+                <List.Item
+                    icon={{ source: Icon.MagnifyingGlass }}
+                    title="Search Messages"
+                    actions={
+                        <ActionPanel>
+                            <Action.Push
+                                title="Search"
+                                target={require("./search-messages").default}
+                                icon={Icon.ArrowRight}
+                            />
+                        </ActionPanel>
+                    }
+                />
+
+                <List.Item
+                    icon={{ source: Icon.Bubble }}
+                    title="View Unread Messages"
+                    actions={
+                        <ActionPanel>
+                            <Action.Push
+                                title="View"
+                                target={require("./unread-messages").default}
+                                icon={Icon.ArrowRight}
+                            />
+                        </ActionPanel>
+                    }
+                />
+
+                <List.Item
+                    icon={{ source: Icon.Bell }}
+                    title="Toggle Notifications"
+                    actions={
+                        <ActionPanel>
+                            <Action.Push
+                                title="Toggle"
+                                target={
+                                    require("./toggle-notifications").default
+                                }
+                                icon={Icon.ArrowRight}
+                            />
+                        </ActionPanel>
+                    }
+                />
+
+                <List.Item
+                    icon={{ source: Icon.Person }}
+                    title="Set Discord Status"
+                    actions={
+                        <ActionPanel>
+                            <Action.Push
+                                title="Set"
+                                target={require("./set-status").default}
+                                icon={Icon.ArrowRight}
+                            />
+                        </ActionPanel>
+                    }
+                />
+            </List.Section>
+
+            <List.Section title="Account">
+                <List.Item
+                    icon={{ source: Icon.Key }}
+                    title="Re-authenticate with Discord"
+                    actions={
+                        <ActionPanel>
+                            <Action
+                                title="Authenticate"
+                                onAction={async () => {
+                                    await authorize();
+                                }}
+                                icon={Icon.Key}
+                            />
+                        </ActionPanel>
+                    }
+                />
+            </List.Section>
         </List>
     );
 }

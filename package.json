@@ -4,79 +4,89 @@
     "description": "Control Discord from Raycast - browse channels, search messages, view unread, toggle notifications and set status",
     "icon": "discord-icon.png",
     "author": "luiscarlospando",
-    "categories": [
-        "Communication",
-        "Productivity"
-    ],
     "license": "MIT",
     "commands": [
         {
-            "name": "open-channels",
-            "title": "Open Discord Channels",
-            "description": "Browse and open Discord servers and channels",
-            "mode": "view"
+            "name": "index",
+            "title": "Discord Controller",
+            "description": "Access all Discord commands",
+            "mode": "view",
+            "keywords": ["discord", "control"]
+        },
+        {
+            "name": "open-channel",
+            "title": "Open Discord Channel",
+            "description": "Browse and open Discord channels",
+            "mode": "view",
+            "keywords": ["discord", "search", "messages"]
         },
         {
             "name": "search-messages",
             "title": "Search Discord Messages",
-            "description": "Search messages within Discord channels",
-            "mode": "view"
+            "description": "Search messages in Discord channels",
+            "mode": "view",
+            "keywords": ["discord", "unread", "inbox"]
         },
         {
             "name": "unread-messages",
             "title": "View Unread Messages",
-            "description": "List and access unread Discord messages",
-            "mode": "view"
+            "description": "List all unread messages across Discord servers",
+            "mode": "view",
+            "keywords": ["discord", "notifications", "toggle"]
         },
         {
             "name": "toggle-notifications",
             "title": "Toggle Discord Notifications",
             "description": "Enable or disable Discord notifications",
-            "mode": "view"
+            "mode": "view",
+            "keywords": ["discord", "status", "presence"]
         },
         {
             "name": "set-status",
             "title": "Set Discord Status",
-            "description": "Change your Discord presence status and add custom messages",
+            "description": "Change your Discord status and custom message",
             "mode": "view"
-        }
-    ],
-    "preferences": [
-        {
-            "name": "clientId",
-            "title": "Discord Client ID",
-            "description": "The Client ID of your Discord application (from the developer portal)",
-            "type": "textfield",
-            "required": true
         },
         {
-            "name": "clientSecret",
-            "title": "Discord Client Secret",
-            "description": "The Client Secret of your Discord application (from the developer portal)",
-            "type": "password",
-            "required": true
+            "name": "test-auth",
+            "title": "Test Discord Authentication",
+            "description": "Test if Discord authentication is working",
+            "mode": "view",
+            "keywords": ["discord", "test", "auth"]
         }
     ],
     "dependencies": {
-        "@raycast/api": "^1.60.0",
-        "@raycast/utils": "^1.10.0",
-        "discord.js": "^14.11.0",
-        "node-fetch": "^3.3.2",
-        "oauth4webapi": "^2.3.0"
+        "@raycast/api": "^1.55.0",
+        "@raycast/utils": "^1.9.0",
+        "node-fetch": "^3.3.1",
+
+        "dotenv": "^16.3.1"
     },
     "devDependencies": {
-        "@eslint/config-array": "^0.20.0",
-        "@eslint/object-schema": "^2.1.6",
         "@raycast/eslint-config": "^1.0.6",
-        "@types/node": "^20.5.6",
-        "@types/react": "^18.2.21",
-        "eslint": "^9.26.0",
-        "prettier": "^3.0.2",
+        "@types/node": "~20.8.10", 
+        "@types/node-fetch": "^2.6.9",
+        "@types/react": "^18.2.27",
+        "eslint": "^8.51.0",
+        "prettier": "^3.0.3",
         "typescript": "^5.2.2"
     },
     "scripts": {
         "build": "ray build -e dist",
         "dev": "ray develop",
-        "lint": "ray lint"
-    }
+        "fix-lint": "ray lint --fix",
+        "lint": "ray lint",
+        "publish": "ray publish",
+        "typecheck": "tsc --noEmit"
+    },
+    "preferences": [
+        {
+            "name": "redirectUri",
+            "type": "textfield",
+            "required": true,
+            "title": "Redirect URI",
+            "description": "The redirect URI for Discord OAuth",
+            "default": "https://raycast.com/redirect?packageName=Extension"
+        }
+    ]
 }
